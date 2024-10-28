@@ -16,7 +16,7 @@ intents.message_content = True  # メッセージの内容を取得
 intents.guilds = True  # サーバー情報にアクセス
 intents.members = True  # メンバー情報にアクセス
 intents.voice_states = True  # ボイス状態の取得
-bot = commands.Bot(command_prefix="!", intents=intents)  # commands.Botに変更
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 # ログ削除の対象チャンネルID
 target_channel_ids = [1282323693502070826, 1300417181690892288]
@@ -65,7 +65,8 @@ async def on_message(message):
                 logger.error(f"エラー発生: {e}")
                 return
 
-        await message.channel.send(f"過去1時間以内のメッセージを{deleted_count}件削除しました。")
+        # 削除完了メッセージを送信し、5秒後に自動削除
+        confirmation_message = await message.channel.send(f"過去1時間以内のメッセージを{deleted_count}件削除しました。", delete_after=5)
         logger.info(f"{deleted_count}件のメッセージを削除しました。")
 
 # Botトークンを環境変数から取得
