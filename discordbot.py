@@ -1,4 +1,5 @@
 import discord
+from discord.ext import commands
 from datetime import datetime, timedelta
 import os
 import random
@@ -15,7 +16,7 @@ intents.message_content = True  # メッセージの内容を取得
 intents.guilds = True  # サーバー情報にアクセス
 intents.members = True  # メンバー情報にアクセス
 intents.voice_states = True  # ボイス状態の取得
-bot = discord.Client(intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)  # commands.Botに変更
 
 # ログ削除の対象チャンネルID
 target_channel_ids = [1282323693502070826, 1300417181690892288]
