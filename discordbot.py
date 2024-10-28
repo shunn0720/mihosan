@@ -65,8 +65,8 @@ async def on_message(message):
                 logger.error(f"エラー発生: {e}")
                 return
 
-        # 削除完了メッセージを送信し、5秒後に自動削除
-        confirmation_message = await message.channel.send(f"過去1時間以内のメッセージを{deleted_count}件削除しました。", delete_after=5)
+        # 削除完了メッセージを送信し、2秒後に自動削除
+        confirmation_message = await message.channel.send(f"過去1時間以内のメッセージを{deleted_count}件削除しました。", delete_after=2)
         logger.info(f"{deleted_count}件のメッセージを削除しました。")
 
 # Botトークンを環境変数から取得
