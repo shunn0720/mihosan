@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import os
 import random
 import logging
+import asyncio
 
 # ログの設定
 logging.basicConfig(level=logging.INFO)
@@ -60,6 +61,11 @@ async def on_message(message):
             try:
                 await msg.delete()
                 deleted_count += 1
+
+                # 一定量の削除後に遅延を挟む
+                if deleted_count % 10 == 0:
+                    await asyncio.sleep(0.5)  # 0.5秒の遅延を挟む
+
             except (discord.Forbidden, discord.HTTPException) as e:
                 await message.channel.send(f"メッセージ削除中にエラーが発生しました: {e}")
                 logger.error(f"エラー発生: {e}")
