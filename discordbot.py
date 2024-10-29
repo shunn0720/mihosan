@@ -53,26 +53,28 @@ async def on_message(message):
                 except discord.HTTPException as e:
                     await message.channel.send(f"エラーが発生しました: {e}")
 
-    # 2. 「ログ削除」というメッセージが送信された場合に、過去1時間のメッセージを削除
+    # 2. 「ログ削除」と入力した人の過去1時間のメッセージを削除
     if message.content == "ログ削除":
         now = datetime.utcnow()
         deleted_count = 0
         async for msg in message.channel.history(limit=None, after=now - timedelta(hours=1)):
-            try:
-                await msg.delete()
-                deleted_count += 1
+            # 「ログ削除」と入力した人のメッセージだけ削除
+            if msg.author.id == message.author.id:
+                try:
+                    await msg.delete()
+                    deleted_count += 1
 
-                # 一定量の削除後に遅延を挟む
-                if deleted_count % 10 == 0:
-                    await asyncio.sleep(0.5)  # 0.5秒の遅延を挟む
+                    # 一定量の削除後に遅延を挟む
+                    if deleted_count % 10 == 0:
+                        await asyncio.sleep(0.5)  # 0.5秒の遅延を挟む
 
-            except (discord.Forbidden, discord.HTTPException) as e:
-                await message.channel.send(f"メッセージ削除中にエラーが発生しました: {e}")
-                logger.error(f"エラー発生: {e}")
-                return
+                except (discord.Forbidden, discord.HTTPException) as e:
+                    await message.channel.send(f"メッセージ削除中にエラーが発生しました: {e}")
+                    logger.error(f"エラー発生: {e}")
+                    return
 
         # 削除完了メッセージを送信し、2秒後に自動削除
-        confirmation_message = await message.channel.send(f"過去1時間以内のメッセージを{deleted_count}件削除しました。", delete_after=2)
+        confirmation_message = await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。", delete_after=2)
         logger.info(f"{deleted_count}件のメッセージを削除しました。")
 
 # Botトークンを環境変数から取得
