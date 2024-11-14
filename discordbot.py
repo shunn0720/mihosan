@@ -54,7 +54,7 @@ async def on_message(message):
                     await message.channel.send(f"エラーが発生しました: {e}")
 
     # 2. 「ログ削除」と入力した人の過去1時間のメッセージを削除
-    if message.content == "ログ削除":
+    if message.content == "バルス":
         now = datetime.utcnow()
         deleted_count = 0
         async for msg in message.channel.history(limit=None, after=now - timedelta(hours=1)):
