@@ -53,12 +53,12 @@ async def on_message(message):
                 except discord.HTTPException as e:
                     await message.channel.send(f"エラーが発生しました: {e}")
 
-    # 2. 「ログ削除」と入力した人の過去1時間のメッセージを削除
+    # 2. 「バルス」と入力した人の過去1時間のメッセージを削除
     if message.content == "バルス":
         now = datetime.utcnow()
         deleted_count = 0
         async for msg in message.channel.history(limit=None, after=now - timedelta(hours=1)):
-            # 「ログ削除」と入力した人のメッセージだけ削除
+            # 「バルス」と入力した人のメッセージだけ削除
             if msg.author.id == message.author.id:
                 try:
                     await msg.delete()
