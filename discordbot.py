@@ -59,7 +59,7 @@ async def on_message(message):
                 try:
                     # ユーザーをボイスチャンネルから切断
                     await user.move_to(None)
-                     # ランダムでメッセージを送信
+                    # ランダムでメッセージを送信
                     farewell_message = random.choice(farewell_messages).format(mention=user.mention)
                     await message.channel.send(farewell_message)
                 except discord.Forbidden:
@@ -87,9 +87,8 @@ async def on_message(message):
                     logger.error(f"エラー発生: {e}")
                     return
 
-        # 削除完了メッセージを送信し、2秒後に自動削除
-        confirmation_message = await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。", delete_after=2)
-        logger.info(f"{deleted_count}件のメッセージを削除しました。")
+        # 削除完了メッセージを送信
+        await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。")
 
 # ボイスチャンネルの状態を監視してDさんの権限を更新
 @bot.event
