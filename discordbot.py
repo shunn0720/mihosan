@@ -59,8 +59,7 @@ async def on_message(message):
                 try:
                     # ユーザーをボイスチャンネルから切断
                     await user.move_to(None)
-                    
-                    # ランダムでメッセージを送信
+                     # ランダムでメッセージを送信
                     farewell_message = random.choice(farewell_messages).format(mention=user.mention)
                     await message.channel.send(farewell_message)
                 except discord.Forbidden:
