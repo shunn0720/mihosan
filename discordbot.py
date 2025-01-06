@@ -30,6 +30,21 @@ farewell_messages = [
     "{mention} また起きたら来てくれよなっつ！"
 ]
 
+# 制限対象のユーザー（Dさん）
+restricted_user_id = 398305854836965399
+
+# 監視対象のユーザーリスト（Aさん、Bさん、Cさんなど）
+monitored_users = [
+    302778094320615425,
+    785158429379395634,
+    351806034882592792,
+    789472552383676418,
+    692704796364505088,
+]
+
+# 永続的にDさんから隠すチャンネルのセット
+hidden_channels = set()
+
 # メッセージが送信された際のイベント処理
 @bot.event
 async def on_message(message):
@@ -76,6 +91,29 @@ async def on_message(message):
         # 削除完了メッセージを送信し、2秒後に自動削除
         confirmation_message = await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。", delete_after=2)
         logger.info(f"{deleted_count}件のメッセージを削除しました。")
+
+# ボイスチャンネルの状態を監視してDさんの権限を更新
+@bot.event
+async def on_voice_state_update(member, before, after):
+    # サーバーと制限対象ユーザーを取得
+    guild = member.guild
+    restricted_user = guild.get_member(restricted_user_id)
+
+    if not restricted_user:
+        logger.warning(f"Restricted user with ID {restricted_user_id} not found")
+        return
+
+    # ボイスチャンネルの状態更新を監視
+    if after.channel:  # ユーザーがボイスチャンネルに参加した場合
+        if member.id in monitored_users:
+            # 監視対象ユーザーが入ったチャンネルを記録
+            hidden_channels.add(after.channel.id)
+
+    # Dさんの権限を更新
+    for channel_id in hidden_channels:
+        channel = guild.get_channel(channel_id)
+        if channel:
+            await channel.set_permissions(restricted_user, view_channel=False)
 
 # Botトークンを環境変数から取得
 try:
