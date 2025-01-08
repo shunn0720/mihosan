@@ -90,28 +90,31 @@ async def on_message(message):
         # 削除完了メッセージを送信
         await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。")
 
-# ボイスチャンネルの状態を監視してDさんの権限を更新
+# ボイスチャンネルの状態を監視してDさんが入っているチャンネルを他のユーザーに見えなくする
 @bot.event
 async def on_voice_state_update(member, before, after):
-    # サーバーと制限対象ユーザーを取得
     guild = member.guild
-    restricted_user = guild.get_member(restricted_user_id)
 
-    if not restricted_user:
-        logger.warning(f"Restricted user with ID {restricted_user_id} not found")
-        return
+    # 制限対象ユーザー（Dさん）がボイスチャンネルに参加した場合
+    if member.id == restricted_user_id and after.channel:
+        channel = after.channel
+        for other_member in guild.members:
+            if other_member.id != restricted_user_id and other_member not in channel.members:
+                try:
+                    # 他のメンバーからチャンネルを見えなくする
+                    await channel.set_permissions(other_member, view_channel=False)
+                except discord.Forbidden:
+                    logger.warning(f"{other_member.name}への権限変更に失敗しました。")
 
-    # ボイスチャンネルの状態更新を監視
-    if after.channel:  # ユーザーがボイスチャンネルに参加した場合
-        if member.id in monitored_users:
-            # 監視対象ユーザーが入ったチャンネルを記録
-            hidden_channels.add(after.channel.id)
-
-    # Dさんの権限を更新
-    for channel_id in hidden_channels:
-        channel = guild.get_channel(channel_id)
-        if channel:
-            await channel.set_permissions(restricted_user, view_channel=False)
+    # 制限対象ユーザーがボイスチャンネルから退出した場合
+    if member.id == restricted_user_id and before.channel:
+        channel = before.channel
+        for other_member in guild.members:
+            try:
+                # チャンネルの権限をリセット
+                await channel.set_permissions(other_member, overwrite=None)
+            except discord.Forbidden:
+                logger.warning(f"{other_member.name}の権限リセットに失敗しました。")
 
 # Botトークンを環境変数から取得
 try:
