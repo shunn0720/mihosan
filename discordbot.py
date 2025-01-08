@@ -33,7 +33,7 @@ farewell_messages = [
 # 制限対象のユーザー（Dさん）
 restricted_user_id = 398305854836965399
 
-# 監視対象のユーザーリスト（Aさん、Bさん、Cさんなど）
+# 監視対象のユーザーリスト
 monitored_users = [
     302778094320615425,
     785158429379395634,
@@ -41,9 +41,6 @@ monitored_users = [
     789472552383676418,
     692704796364505088,
 ]
-
-# 永続的にDさんから隠すチャンネルのセット
-hidden_channels = set()
 
 # メッセージが送信された際のイベント処理
 @bot.event
@@ -59,6 +56,7 @@ async def on_message(message):
                 try:
                     # ユーザーをボイスチャンネルから切断
                     await user.move_to(None)
+                    
                     # ランダムでメッセージを送信
                     farewell_message = random.choice(farewell_messages).format(mention=user.mention)
                     await message.channel.send(farewell_message)
@@ -87,34 +85,40 @@ async def on_message(message):
                     logger.error(f"エラー発生: {e}")
                     return
 
-        # 削除完了メッセージを送信
-        await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。")
+        # 削除完了メッセージを送信し、2秒後に自動削除
+        confirmation_message = await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。", delete_after=2)
+        logger.info(f"{deleted_count}件のメッセージを削除しました。")
 
-# ボイスチャンネルの状態を監視してDさんが入っているチャンネルを他のユーザーに見えなくする
+# ボイスチャンネルの状態を監視
 @bot.event
 async def on_voice_state_update(member, before, after):
     guild = member.guild
 
-    # 制限対象ユーザー（Dさん）がボイスチャンネルに参加した場合
-    if member.id == restricted_user_id and after.channel:
+    # チャンネルが変更された場合の確認
+    if after.channel:
         channel = after.channel
-        for other_member in guild.members:
-            if other_member.id != restricted_user_id and other_member not in channel.members:
-                try:
-                    # 他のメンバーからチャンネルを見えなくする
-                    await channel.set_permissions(other_member, view_channel=False)
-                except discord.Forbidden:
-                    logger.warning(f"{other_member.name}への権限変更に失敗しました。")
 
-    # 制限対象ユーザーがボイスチャンネルから退出した場合
-    if member.id == restricted_user_id and before.channel:
-        channel = before.channel
-        for other_member in guild.members:
-            try:
-                # チャンネルの権限をリセット
-                await channel.set_permissions(other_member, overwrite=None)
-            except discord.Forbidden:
-                logger.warning(f"{other_member.name}の権限リセットに失敗しました。")
+        # 監視対象ユーザーがそのチャンネルにいる場合
+        if any(m.id in monitored_users for m in channel.members):
+            logger.info(f"監視対象ユーザーがチャンネルにいます: {channel.name}")
+
+            # Dさんにそのチャンネルを見えなくする
+            restricted_user = guild.get_member(restricted_user_id)
+            if restricted_user:
+                try:
+                    await channel.set_permissions(restricted_user, view_channel=False)
+                    logger.info(f"Dさんからチャンネル {channel.name} を隠しました。")
+                except discord.Forbidden:
+                    logger.warning(f"Dさんに対する権限設定に失敗しました: {channel.name}")
+        else:
+            # 監視対象ユーザーがいない場合、Dさんにチャンネルを見えるようにする
+            restricted_user = guild.get_member(restricted_user_id)
+            if restricted_user:
+                try:
+                    await channel.set_permissions(restricted_user, overwrite=None)
+                    logger.info(f"Dさんにチャンネル {channel.name} を再び見えるようにしました。")
+                except discord.Forbidden:
+                    logger.warning(f"Dさんの権限リセットに失敗しました: {channel.name}")
 
 # Botトークンを環境変数から取得
 try:
