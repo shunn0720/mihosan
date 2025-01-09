@@ -45,10 +45,11 @@ farewell_messages = [
 # メッセージが送信された際のイベント処理
 @bot.event
 async def on_message(message):
+    # Bot自身のメッセージには反応しない
     if message.author == bot.user:
         return
 
-    # 1. メンションが飛ばされた際にボイスチャンネルから切断
+    # メンションが飛ばされた際にボイスチャンネルから切断
     if message.channel.id in target_channel_ids and message.mentions:
         for user in message.mentions:
             if user.voice and user.voice.channel:
@@ -64,7 +65,7 @@ async def on_message(message):
                 except discord.HTTPException as e:
                     await message.channel.send(f"エラーが発生しました: {e}")
 
-    # 2. 「バルス」と入力した人の過去1時間のメッセージを削除
+    # 「バルス」と入力した人の過去1時間のメッセージを削除
     if message.content == "バルス":
         now = datetime.utcnow()
         deleted_count = 0
@@ -82,7 +83,7 @@ async def on_message(message):
                     logger.error(f"エラー発生: {e}")
                     return
 
-        confirmation_message = await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。", delete_after=2)
+        await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。", delete_after=2)
         logger.info(f"{deleted_count}件のメッセージを削除しました。")
 
 # ボイスチャンネルの状態を監視してDさんに見えなくする
