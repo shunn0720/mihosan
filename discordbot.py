@@ -19,6 +19,9 @@ intents.members = True  # メンバー情報にアクセス
 intents.voice_states = True  # ボイス状態の取得
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ログ削除の対象チャンネルID
+target_channel_ids = [1282323693502070826, 1300417181690892288]
+
 # 制限対象のユーザー（Dさん）
 restricted_user_id = 398305854836965399
 
@@ -29,6 +32,14 @@ monitored_users = [
     351806034882592792,
     789472552383676418,
     692704796364505088,
+]
+
+# ランダムメッセージのリスト
+farewell_messages = [
+    "{mention} いい夢見なっつ！",
+    "{mention} 夢で会おうなっつ！",
+    "{mention} ちゃんと布団で寝なっつ！",
+    "{mention} また起きたら来てくれよなっつ！"
 ]
 
 # メッセージが送信された際のイベント処理
@@ -77,30 +88,36 @@ async def on_message(message):
 # ボイスチャンネルの状態を監視してDさんに見えなくする
 @bot.event
 async def on_voice_state_update(member, before, after):
-    restricted_user = member.guild.get_member(restricted_user_id)
+    guild = member.guild
+    restricted_user = guild.get_member(restricted_user_id)
 
-    # Dさんが制限対象かつボイスチャンネルが変更された場合
-    if after.channel and restricted_user:
-        channel = after.channel
+    # ボイスチャンネルが変更された場合
+    if after.channel or before.channel:
+        # 現在のチャンネルを確認
+        if after.channel:
+            channel = after.channel
 
-        # 監視対象ユーザーがチャンネルにいる場合
-        if any(m.id in monitored_users for m in channel.members):
-            try:
-                await channel.set_permissions(restricted_user, view_channel=False)
-                logger.info(f"Dさんからチャンネル {channel.name} を非表示にしました。")
-            except discord.Forbidden:
-                logger.warning(f"Dさんの権限変更に失敗しました: {channel.name}")
+            # チャンネルに監視対象のユーザーがいる場合
+            if any(user.id in monitored_users for user in channel.members):
+                if restricted_user:
+                    try:
+                        await channel.set_permissions(restricted_user, view_channel=False)
+                        logger.info(f"Dさんからチャンネル {channel.name} を非表示にしました（監視対象者がいるため）。")
+                    except discord.Forbidden:
+                        logger.warning(f"Dさんの権限変更に失敗しました: {channel.name}")
 
-    # 監視対象ユーザーが退出した場合、Dさんにチャンネルを再び見えるようにする
-    if before.channel and restricted_user:
-        channel = before.channel
+        # 退出したチャンネルを確認
+        if before.channel:
+            channel = before.channel
 
-        if not any(m.id in monitored_users for m in channel.members):
-            try:
-                await channel.set_permissions(restricted_user, overwrite=None)
-                logger.info(f"Dさんにチャンネル {channel.name} を再び表示可能にしました。")
-            except discord.Forbidden:
-                logger.warning(f"Dさんの権限リセットに失敗しました: {channel.name}")
+            # チャンネルに監視対象のユーザーがいない場合
+            if not any(user.id in monitored_users for user in channel.members):
+                if restricted_user:
+                    try:
+                        await channel.set_permissions(restricted_user, overwrite=None)
+                        logger.info(f"Dさんにチャンネル {channel.name} を再び表示可能にしました（監視対象者がいなくなったため）。")
+                    except discord.Forbidden:
+                        logger.warning(f"Dさんの権限リセットに失敗しました: {channel.name}")
 
 # Botトークンを環境変数から取得
 try:
