@@ -30,6 +30,27 @@ farewell_messages = [
     "{mention} また起きたら来てくれよなっつ！"
 ]
 
+# Botが準備完了時に呼び出されるイベント
+@bot.event
+async def on_ready():
+    logger.info(f"Botがログインしました: {bot.user.name}")
+    
+    # 特定のチャンネルで特定のユーザーの権限を更新
+    guild = discord.utils.get(bot.guilds)  # 最初に見つかったサーバー
+    if guild:
+        user = guild.get_member(398305854836965399)  # ユーザーIDからメンバーを取得
+        channel = guild.get_channel(1282968954884591648)  # チャンネルIDからチャンネルを取得
+        
+        if user and channel:
+            try:
+                # 特定ユーザーに「表示」権限を付与
+                overwrite = channel.overwrites_for(user)
+                overwrite.view_channel = True
+                await channel.set_permissions(user, overwrite=overwrite)
+                logger.info(f"{user.display_name} が {channel.name} を見えるようにしました。")
+            except Exception as e:
+                logger.error(f"チャンネル権限の更新に失敗しました: {e}")
+
 # メッセージが送信された際のイベント処理
 @bot.event
 async def on_message(message):
