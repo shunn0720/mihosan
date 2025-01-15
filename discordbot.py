@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import random
 import logging
@@ -19,8 +19,31 @@ intents.members = True  # メンバー情報にアクセス
 intents.voice_states = True  # ボイス状態の取得
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ログ削除の対象チャンネルID
-target_channel_ids = [1282323693502070826, 1300417181690892288]
+# 制限対象のユーザー（Dさん）
+restricted_user_id = 398305854836965399
+
+# 監視対象のユーザーリスト
+monitored_users = [
+    302778094320615425,
+    785158429379395634,
+    351806034882592792,
+    789472552383676418,
+    692704796364505088,
+    780189567747489794,
+    824970594465480716,
+    1136514267085021244,
+    787775223326834699,
+]
+
+# 無視するチャンネル（権限変更を適用しない）
+ignored_channel_ids = [
+    1282941830744510514,
+    1282968954884591648,
+    1282952456120303709,
+]
+
+# 日本標準時（JST）のタイムゾーン
+JST = timezone(timedelta(hours=9))
 
 # ランダムメッセージのリスト
 farewell_messages = [
@@ -30,62 +53,81 @@ farewell_messages = [
     "{mention} また起きたら来てくれよなっつ！"
 ]
 
-# Botが準備完了時に呼び出されるイベント
+def is_restricted_time():
+    """現在が日本時間の夜11時～朝3時かを判定する"""
+    now = datetime.now(JST).time()
+    restricted_start = datetime.strptime("23:00", "%H:%M").time()
+    restricted_end = datetime.strptime("03:00", "%H:%M").time()
+    
+    # 夜11時から日付を跨いで朝3時まで
+    return restricted_start <= now or now <= restricted_end
+
+@bot.event
+async def on_voice_state_update(member, before, after):
+    """ボイスチャンネルの状態を監視し、Dさんに非表示にする処理"""
+    guild = member.guild
+    restricted_user = guild.get_member(restricted_user_id)
+
+    if not restricted_user:
+        logger.warning(f"Restricted user with ID {restricted_user_id} not found in guild {guild.name}")
+        return
+
+    # ボイスチャンネルが変更された場合
+    if after.channel or before.channel:
+        # 現在のチャンネルを確認
+        if after.channel:
+            channel = after.channel
+
+            # 無視するチャンネルの場合はスキップ
+            if channel.id in ignored_channel_ids:
+                logger.info(f"チャンネル {channel.name} は除外対象のため処理をスキップします。")
+            elif is_restricted_time():  # 日本時間の制限時間帯のみ適用
+                # チャンネルに監視対象のユーザーがいる場合
+                if any(user.id in monitored_users for user in channel.members):
+                    try:
+                        await channel.set_permissions(restricted_user, view_channel=False)
+                        logger.info(f"Dさんからチャンネル {channel.name} を非表示にしました（監視対象者がいるため）。")
+                    except discord.Forbidden:
+                        logger.warning(f"Dさんの権限変更に失敗しました: {channel.name}")
+            else:
+                logger.info(f"現在は制限時間外です。Dさんのチャンネル権限は変更されません。")
+
+        # 退出したチャンネルを確認
+        if before.channel:
+            channel = before.channel
+
+            # 無視するチャンネルの場合はスキップ
+            if channel.id in ignored_channel_ids:
+                logger.info(f"チャンネル {channel.name} は除外対象のため処理をスキップします。")
+            elif is_restricted_time():  # 日本時間の制限時間帯のみ適用
+                # チャンネルに監視対象のユーザーがいない場合
+                if not any(user.id in monitored_users for user in channel.members):
+                    try:
+                        await channel.set_permissions(restricted_user, overwrite=None)
+                        logger.info(f"Dさんにチャンネル {channel.name} を再び表示可能にしました（監視対象者がいなくなったため）。")
+                    except discord.Forbidden:
+                        logger.warning(f"Dさんの権限リセットに失敗しました: {channel.name}")
+
 @bot.event
 async def on_ready():
     logger.info(f"Botがログインしました: {bot.user.name}")
-    
-    # 特定のチャンネルで特定のユーザーの権限を更新
-    guild = discord.utils.get(bot.guilds)  # 最初に見つかったサーバー
-    if guild:
-        user = guild.get_member(398305854836965399)  # ユーザーIDからメンバーを取得
-        channel = guild.get_channel(1282968954884591648)  # チャンネルIDからチャンネルを取得
-        
-        if user and channel:
-            try:
-                # 特定ユーザーに「表示」権限を付与
-                overwrite = channel.overwrites_for(user)
-                overwrite.view_channel = True
-                await channel.set_permissions(user, overwrite=overwrite)
-                logger.info(f"{user.display_name} が {channel.name} を見えるようにしました。")
-            except Exception as e:
-                logger.error(f"チャンネル権限の更新に失敗しました: {e}")
 
-# メッセージが送信された際のイベント処理
 @bot.event
 async def on_message(message):
-    # Bot自身のメッセージには反応しない
+    """メッセージイベントの処理"""
     if message.author == bot.user:
         return
 
-    # 1. メンションが飛ばされた際にボイスチャンネルから切断
-    if message.channel.id in target_channel_ids and message.mentions:
-        for user in message.mentions:
-            if user.voice and user.voice.channel:
-                try:
-                    # ユーザーをボイスチャンネルから切断
-                    await user.move_to(None)
-                    
-                    # ランダムでメッセージを送信
-                    farewell_message = random.choice(farewell_messages).format(mention=user.mention)
-                    await message.channel.send(farewell_message)
-                except discord.Forbidden:
-                    await message.channel.send(f"{user.mention}を切断する権限がありません。")
-                except discord.HTTPException as e:
-                    await message.channel.send(f"エラーが発生しました: {e}")
-
-    # 2. 「バルス」と入力した人の過去1時間のメッセージを削除
+    # 「バルス」と入力した人の過去1時間のメッセージを削除
     if message.content == "バルス":
         now = datetime.utcnow()
         deleted_count = 0
         async for msg in message.channel.history(limit=None, after=now - timedelta(hours=1)):
-            # 「バルス」と入力した人のメッセージだけ削除
             if msg.author.id == message.author.id:
                 try:
                     await msg.delete()
                     deleted_count += 1
 
-                    # 一定量の削除後に遅延を挟む
                     if deleted_count % 10 == 0:
                         await asyncio.sleep(0.5)  # 0.5秒の遅延を挟む
 
@@ -94,8 +136,7 @@ async def on_message(message):
                     logger.error(f"エラー発生: {e}")
                     return
 
-        # 削除完了メッセージを送信し、2秒後に自動削除
-        confirmation_message = await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。", delete_after=2)
+        await message.channel.send(f"過去1時間以内にあなたが送信したメッセージを{deleted_count}件削除しました。", delete_after=2)
         logger.info(f"{deleted_count}件のメッセージを削除しました。")
 
 # Botトークンを環境変数から取得
