@@ -75,7 +75,7 @@ class UnmuteButton(Button):
             await interaction.response.send_message("❗ ミュートされていないか、VCにいません。", ephemeral=True)
 
 @bot.command()
-async def ミュート予約(ctx):
+async def タイマー(ctx):
     embed = discord.Embed(
         title="タイマー",
         description="押した数字の時間後にミュートなります。\n解除したくなったら解除ボタン押してください。",
