@@ -20,11 +20,9 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 class MuteTimerView(View):
     def __init__(self):
         super().__init__(timeout=None)
-        # 1～5 は row=0、6～9 は row=1
         for i in range(1, 10):
             row = 0 if i <= 5 else 1
             self.add_item(MuteButton(label=str(i), hours=i, row=row))
-        # 解除ボタンは row=2 に配置
         self.add_item(UnmuteButton(row=2))
 
 class MuteButton(Button):
@@ -41,12 +39,24 @@ class MuteButton(Button):
             )
             return
 
-        await interaction.response.send_message(
-            f"⏳ {self.hours}時間後にMu~𖤐さんをミュートします（※自動解除はされません）",
-            ephemeral=True
+        await interaction.message.delete()  # 古いボタン削除
+        await interaction.channel.send(
+            embed=discord.Embed(
+                title="タイマー",
+                description=(
+                    f"{self.hours}時間後にミュートタイマーをセットしました！\n"
+                    "押した数字の時間後にミュートされます。\n"
+                    "解除したいときは解除ボタンを押してください。"
+                ),
+                color=discord.Color.blue()
+            ),
+            view=MuteTimerView()
         )
 
-        # タイマー開始
+        await interaction.channel.send(
+            f"⏳ {self.hours}時間後にMu~𖤐さんをミュートします（※自動解除はされません）"
+        )
+
         asyncio.create_task(self.mute_after_delay(interaction))
 
     async def mute_after_delay(self, interaction: discord.Interaction):
@@ -71,19 +81,32 @@ class UnmuteButton(Button):
 
     async def callback(self, interaction: discord.Interaction):
         member = interaction.guild.get_member(TARGET_USER_ID)
+        await interaction.message.delete()  # 古いボタン削除
+        await interaction.channel.send(
+            embed=discord.Embed(
+                title="タイマー",
+                description=(
+                    "ミュート解除の操作が行われました。\n"
+                    "押した数字の時間後に再度ミュートすることもできます。"
+                ),
+                color=discord.Color.blue()
+            ),
+            view=MuteTimerView()
+        )
+
         if member and member.voice and member.voice.mute:
             try:
                 await member.edit(mute=False)
-                await interaction.response.send_message(
-                    f"🔊 {member.display_name} のミュートを解除しました。", ephemeral=True
+                await interaction.channel.send(
+                    f"🔊 {member.display_name} のミュートを解除しました。"
                 )
             except Exception as e:
-                await interaction.response.send_message(
-                    f"⚠️ 解除に失敗しました：{e}", ephemeral=True
+                await interaction.channel.send(
+                    f"⚠️ 解除に失敗しました：{e}"
                 )
         else:
-            await interaction.response.send_message(
-                "❗ ミュートされていないか、VCにいません。", ephemeral=True
+            await interaction.channel.send(
+                "❗ ミュートされていないか、VCにいません。"
             )
 
 @bot.command(name="タイマー")
