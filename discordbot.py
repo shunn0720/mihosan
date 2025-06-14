@@ -17,9 +17,11 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# ── PersistentView対応版 ──
+
 class MuteTimerView(View):
     def __init__(self):
-        super().__init__(timeout=None)
+        super().__init__(timeout=None)  # timeout=Noneが永続化の前提
         for i in range(1, 10):
             row = 0 if i <= 5 else 1
             self.add_item(MuteButton(label=str(i), hours=i, row=row))
@@ -27,7 +29,9 @@ class MuteTimerView(View):
 
 class MuteButton(Button):
     def __init__(self, label: str, hours: int, row: int = 0):
-        super().__init__(label=label, style=discord.ButtonStyle.primary, row=row)
+        # custom_idが永続化に必須
+        custom_id = f"mute_timer_{hours}"
+        super().__init__(label=label, style=discord.ButtonStyle.primary, row=row, custom_id=custom_id)
         self.hours = hours
 
     async def callback(self, interaction: discord.Interaction):
@@ -77,7 +81,8 @@ class MuteButton(Button):
 
 class UnmuteButton(Button):
     def __init__(self, row: int = 2):
-        super().__init__(label="🔊 ミュート解除", style=discord.ButtonStyle.success, row=row)
+        # custom_idを指定（必須）
+        super().__init__(label="🔊 ミュート解除", style=discord.ButtonStyle.success, row=row, custom_id="mute_timer_unmute")
 
     async def callback(self, interaction: discord.Interaction):
         member = interaction.guild.get_member(TARGET_USER_ID)
@@ -123,6 +128,8 @@ async def timer(ctx):
 
 @bot.event
 async def on_ready():
+    # これで再起動後もボタンが生き続ける
+    bot.add_view(MuteTimerView())
     print(f"{bot.user} is ready.")
 
 bot.run(TOKEN)
