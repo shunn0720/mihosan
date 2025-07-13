@@ -132,4 +132,4 @@ async def on_ready():
     bot.add_view(MuteTimerView())
     print(f"{bot.user} is ready.")
 
-bot.run(TOKEN)
+bot.run(TOKEN
